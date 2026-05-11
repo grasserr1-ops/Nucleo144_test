@@ -1,0 +1,13 @@
+*.o
+*.d
+*.list
+*.map
+*.mk
+*.elf
+.settings/
+.metadata/
+*.txt
+*.su
+*.cyclo
+*makefile
+*.json
