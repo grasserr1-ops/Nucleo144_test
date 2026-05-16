@@ -1280,17 +1280,17 @@ static void MX_GPIO_Init(void)
  8000b8c:	58021800 	.word	0x58021800
 
 08000b90 <StartDefaultTask>:
-  * @brief  Function implementing the defaultTask thread.
   * @param  argument: Not used
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
+void StartDefaultTask(void *argument)
+{
  8000b90:	b580      	push	{r7, lr}
  8000b92:	b082      	sub	sp, #8
  8000b94:	af00      	add	r7, sp, #0
  8000b96:	6078      	str	r0, [r7, #4]
-	/* USER CODE BEGIN 5 */
+  /* USER CODE BEGIN 5 */
 	/* Infinite loop */
 	for (;;) {
 		/* -- Sample board code for User push-button in interrupt mode ---- */

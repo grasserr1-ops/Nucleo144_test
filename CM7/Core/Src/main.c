@@ -363,8 +363,9 @@ static void MX_GPIO_Init(void)
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument) {
-	/* USER CODE BEGIN 5 */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
 	/* Infinite loop */
 	for (;;) {
 		/* -- Sample board code for User push-button in interrupt mode ---- */
@@ -379,7 +380,7 @@ void StartDefaultTask(void *argument) {
 		}
 		osDelay(1);
 	}
-	/* USER CODE END 5 */
+  /* USER CODE END 5 */
 }
 
 /**
