@@ -75,6 +75,7 @@ static void MX_GPIO_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+void BlinkTask(void *argument);
 
 /* USER CODE END PFP */
 
@@ -176,6 +177,12 @@ Error_Handler();
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  const osThreadAttr_t startTask_attributes = {
+    .name = "startTask",
+    .stack_size = 128 * 4,
+    .priority = (osPriority_t) osPriorityNormal,
+  };
+  defaultTaskHandle = osThreadNew(BlinkTask, NULL, &startTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -254,11 +261,11 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 5;
-  RCC_OscInitStruct.PLL.PLLN = 160;
+  RCC_OscInitStruct.PLL.PLLN = 500;
   RCC_OscInitStruct.PLL.PLLP = 2;
   RCC_OscInitStruct.PLL.PLLQ = 5;
   RCC_OscInitStruct.PLL.PLLR = 2;
-  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_2;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_0;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
   RCC_OscInitStruct.PLL.PLLFRACN = 0;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -353,6 +360,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void BlinkTask(void *argument) {
+	/* Infinite loop */
+	for (;;) {
+		BSP_LED_Toggle(LED_GREEN);
+		osDelay(500);
+	}
+}
 
 /* USER CODE END 4 */
 
@@ -373,7 +387,6 @@ void StartDefaultTask(void *argument)
 			/* Update button state */
 			BspButtonState = BUTTON_RELEASED;
 			/* -- Sample board code to toggle leds ---- */
-			BSP_LED_Toggle(LED_GREEN);
 			BSP_LED_Toggle(LED_YELLOW);
 			BSP_LED_Toggle(LED_RED);
 			/* ..... Perform your action ..... */
