@@ -23,7 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "MODULEs/periphery/led/led.h"
+#include "MODULEs/periphery/led/led_config.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,7 +76,6 @@ static void MX_GPIO_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-void BlinkTask(void *argument);
 
 /* USER CODE END PFP */
 
@@ -177,12 +177,12 @@ Error_Handler();
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-  const osThreadAttr_t startTask_attributes = {
-    .name = "startTask",
+  const osThreadAttr_t ledTask_attributes = {
+    .name = "ledTask",
     .stack_size = 128 * 4,
     .priority = (osPriority_t) osPriorityNormal,
   };
-  defaultTaskHandle = osThreadNew(BlinkTask, NULL, &startTask_attributes);
+  defaultTaskHandle = osThreadNew(ledTask, NULL, &ledTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -360,13 +360,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void BlinkTask(void *argument) {
-	/* Infinite loop */
-	for (;;) {
-		BSP_LED_Toggle(LED_GREEN);
-		osDelay(500);
-	}
-}
 
 /* USER CODE END 4 */
 
@@ -380,6 +373,7 @@ void BlinkTask(void *argument) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+	cycle_blink_led(GREEN_LED, 1000);
 	/* Infinite loop */
 	for (;;) {
 		/* -- Sample board code for User push-button in interrupt mode ---- */
@@ -387,8 +381,8 @@ void StartDefaultTask(void *argument)
 			/* Update button state */
 			BspButtonState = BUTTON_RELEASED;
 			/* -- Sample board code to toggle leds ---- */
-			BSP_LED_Toggle(LED_YELLOW);
-			BSP_LED_Toggle(LED_RED);
+			hard_toggle_led(YELLOW_LED);
+			hard_toggle_led(RED_LED);
 			/* ..... Perform your action ..... */
 		}
 		osDelay(1);

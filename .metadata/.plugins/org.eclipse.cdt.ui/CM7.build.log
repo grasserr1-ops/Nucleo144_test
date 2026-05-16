@@ -1,10 +1,18 @@
-16:59:03 **** Incremental Build of configuration Debug for project CM7 ****
+19:41:26 **** Incremental Build of configuration Debug for project CM7 ****
 make -j20 all 
+arm-none-eabi-gcc "../MODULEs/periphery/led/led.c" -mcpu=cortex-m7 -std=gnu11 -g3 -DDEBUG -DCORE_CM7 -DUSE_HAL_DRIVER -DSTM32H755xx -DUSE_PWR_DIRECT_SMPS_SUPPLY -c -I../Core/Inc -I../../Drivers/STM32H7xx_HAL_Driver/Inc -I../../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../../Drivers/BSP/STM32H7xx_Nucleo -I../../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../../Drivers/CMSIS/Include -I../../Middlewares/Third_Party/FreeRTOS/Source/include -I../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 -I../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F -I../ -I../../Drivers/CMSIS/RTOS2/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"MODULEs/periphery/led/led.d" -MT"MODULEs/periphery/led/led.o" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "MODULEs/periphery/led/led.o"
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m7 -std=gnu11 -g3 -DDEBUG -DCORE_CM7 -DUSE_HAL_DRIVER -DSTM32H755xx -DUSE_PWR_DIRECT_SMPS_SUPPLY -c -I../Core/Inc -I../../Drivers/STM32H7xx_HAL_Driver/Inc -I../../Drivers/STM32H7xx_HAL_Driver/Inc/Legacy -I../../Drivers/BSP/STM32H7xx_Nucleo -I../../Drivers/CMSIS/Device/ST/STM32H7xx/Include -I../../Drivers/CMSIS/Include -I../../Middlewares/Third_Party/FreeRTOS/Source/include -I../../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 -I../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F -I../ -I../../Drivers/CMSIS/RTOS2/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+arm-none-eabi-gcc -o "CM7.elf" @"objects.list"   -mcpu=cortex-m7 -T"C:\Users\grasser\Desktop\STM32H755\CM7\STM32H755ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="CM7.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: CM7.elf
+ 
 arm-none-eabi-size  CM7.elf 
+arm-none-eabi-objdump -h -S CM7.elf  > "CM7.list"
    text	   data	    bss	    dec	    hex	filename
-  33008	    140	  21452	  54600	   d548	CM7.elf
+  33676	    188	  21452	  55316	   d814	CM7.elf
 Finished building: default.size.stdout
  
+Finished building: CM7.list
+ 
 
-16:59:03 Build Finished. 0 errors, 0 warnings. (took 185ms)
+19:41:27 Build Finished. 0 errors, 0 warnings. (took 796ms)
 

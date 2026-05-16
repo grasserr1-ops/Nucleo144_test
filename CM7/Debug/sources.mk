@@ -27,5 +27,6 @@ Core/Src \
 Core/Startup \
 Drivers/BSP/STM32H7xx_Nucleo \
 Drivers/STM32H7xx_HAL_Driver \
+MODULEs/periphery/led \
 Middlewares/Third_Party/FreeRTOS \
 

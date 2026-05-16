@@ -42,7 +42,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/deprecated_definitions.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h \
  ../../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h \
- ../../Drivers/CMSIS/RTOS2/Include/cmsis_os2.h
+ ../../Drivers/CMSIS/RTOS2/Include/cmsis_os2.h \
+ ../MODULEs/periphery/led/led.h ../MODULEs/periphery/led/led_config.h \
+ ../MODULEs/periphery/led/led.h
 ../Core/Inc/main.h:
 ../../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_hal.h:
 ../Core/Inc/stm32h7xx_hal_conf.h:
@@ -88,3 +90,6 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/portmacro.h:
 ../../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrappers.h:
 ../../Drivers/CMSIS/RTOS2/Include/cmsis_os2.h:
+../MODULEs/periphery/led/led.h:
+../MODULEs/periphery/led/led_config.h:
+../MODULEs/periphery/led/led.h:
