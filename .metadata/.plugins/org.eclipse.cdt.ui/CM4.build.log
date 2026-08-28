@@ -1,10 +1,10 @@
-16:42:50 **** Incremental Build of configuration Debug for project CM4 ****
+15:22:03 **** Incremental Build of configuration Debug for project CM4 ****
 make -j20 all 
 arm-none-eabi-size  CM4.elf 
    text	   data	    bss	    dec	    hex	filename
-   3232	     16	   1568	   4816	   12d0	CM4.elf
+  15608	     20	  20932	  36560	   8ed0	CM4.elf
 Finished building: default.size.stdout
  
 
-16:42:50 Build Finished. 0 errors, 0 warnings. (took 187ms)
+15:22:04 Build Finished. 0 errors, 0 warnings. (took 243ms)
 
