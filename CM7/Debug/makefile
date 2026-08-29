@@ -13,6 +13,7 @@ RM := rm -rf
 -include MODULEs/periphery/led/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/subdir.mk
 -include Drivers/BSP/STM32H7xx_Nucleo/subdir.mk
+-include Drivers/BSP/Component/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include Common/Src/subdir.mk

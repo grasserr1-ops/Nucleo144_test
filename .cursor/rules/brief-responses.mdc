@@ -1,0 +1,10 @@
+---
+description: Keep answers concise unless the user asks for more detail
+alwaysApply: true
+---
+
+# Brief responses (default)
+
+- Answer **concisely** by default: short paragraphs, minimal lists, no long preambles.
+- Include only what is needed to answer the question or complete the task.
+- Expand with detail, step-by-step walkthroughs, or long explanations **only when the user explicitly asks** (e.g. "подробнее", "разверни", "explain in detail", "otherwise").

@@ -25,6 +25,7 @@ SUBDIRS := \
 Common/Src \
 Core/Src \
 Core/Startup \
+Drivers/BSP/Component \
 Drivers/BSP/STM32H7xx_Nucleo \
 Drivers/STM32H7xx_HAL_Driver \
 MODULEs/periphery/led \

@@ -1,28 +1,7 @@
-15:21:56 **** Incremental Build of configuration Debug for project CM4 ****
-make -j20 all 
-arm-none-eabi-size  CM4.elf 
-   text	   data	    bss	    dec	    hex	filename
-  15608	     20	  20932	  36560	   8ed0	CM4.elf
-Finished building: default.size.stdout
- 
-15:22:03 **** Incremental Build of configuration Debug for project CM4 ****
-make -j20 all 
-arm-none-eabi-size  CM4.elf 
-   text	   data	    bss	    dec	    hex	filename
-  15608	     20	  20932	  36560	   8ed0	CM4.elf
-Finished building: default.size.stdout
- 
-15:22:37 **** Incremental Build of configuration Debug for project CM7 ****
+11:14:37 **** Incremental Build of configuration Debug for project CM7 ****
 make -j20 all 
 arm-none-eabi-size  CM7.elf 
    text	   data	    bss	    dec	    hex	filename
-  33676	    188	  21452	  55316	   d814	CM7.elf
-Finished building: default.size.stdout
- 
-15:23:14 **** Incremental Build of configuration Debug for project CM7 ****
-make -j20 all 
-arm-none-eabi-size  CM7.elf 
-   text	   data	    bss	    dec	    hex	filename
-  33676	    188	  21452	  55316	   d814	CM7.elf
+  33436	    188	  21452	  55076	   d724	CM7.elf
 Finished building: default.size.stdout
  

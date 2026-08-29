@@ -7,6 +7,7 @@
 "./Core/Src/syscalls.o"
 "./Core/Src/sysmem.o"
 "./Core/Startup/startup_stm32h755zitx.o"
+"./Drivers/BSP/Component/lan8742.o"
 "./Drivers/BSP/STM32H7xx_Nucleo/stm32h7xx_nucleo.o"
 "./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal.o"
 "./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_cortex.o"
