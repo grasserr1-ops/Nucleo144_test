@@ -1,7 +1,0 @@
-11:14:37 **** Incremental Build of configuration Debug for project CM7 ****
-make -j20 all 
-arm-none-eabi-size  CM7.elf 
-   text	   data	    bss	    dec	    hex	filename
-  33436	    188	  21452	  55076	   d724	CM7.elf
-Finished building: default.size.stdout
- 
