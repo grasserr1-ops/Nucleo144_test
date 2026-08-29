@@ -11,6 +11,7 @@ RM := rm -rf
 -include sources.mk
 -include Middlewares/Third_Party/LwIP/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/subdir.mk
+-include MODULEs/net/http/subdir.mk
 -include LWIP/Target/subdir.mk
 -include LWIP/App/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/subdir.mk

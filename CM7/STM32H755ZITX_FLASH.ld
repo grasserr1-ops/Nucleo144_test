@@ -177,6 +177,13 @@ SECTIONS
     . = ALIGN(8);
   } >RAM_D1
 
+  /* CM7↔CM4 web IPC shared buffer in SRAM4 */
+  .web_ipc_shared (NOLOAD) :
+  {
+    . = ABSOLUTE(0x38000000);
+    . = . + 0x2000;
+  } >RAM_D3
+
   /* Remove information from the compiler libraries */
   /DISCARD/ :
   {

@@ -11,6 +11,7 @@ RM := rm -rf
 -include sources.mk
 -include Middlewares/Third_Party/FreeRTOS/subdir.mk
 -include MODULEs/periphery/led/subdir.mk
+-include MODULEs/net/web/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/subdir.mk
 -include Drivers/BSP/STM32H7xx_Nucleo/subdir.mk
 -include Drivers/BSP/Component/subdir.mk

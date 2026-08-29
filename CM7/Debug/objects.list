@@ -31,6 +31,8 @@
 "./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_uart_ex.o"
 "./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart.o"
 "./Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_usart_ex.o"
+"./MODULEs/net/web/web_ipc_server.o"
+"./MODULEs/net/web/web_page.o"
 "./MODULEs/periphery/led/led.o"
 "./MODULEs/periphery/led/led_config.o"
 "./Middlewares/Third_Party/FreeRTOS/cmsis_os2.o"

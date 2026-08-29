@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "MODULEs/periphery/led/led.h"
 #include "MODULEs/periphery/led/led_config.h"
+#include "MODULEs/net/web/web_ipc_server.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -183,6 +184,7 @@ Error_Handler();
     .priority = (osPriority_t) osPriorityNormal,
   };
   defaultTaskHandle = osThreadNew(ledTask, NULL, &ledTask_attributes);
+  web_ipc_server_start();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */

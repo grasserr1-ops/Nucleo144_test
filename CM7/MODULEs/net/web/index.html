@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STM32H755</title>
+<style>
+html,body{margin:0;height:100%;background:#111;color:#eee;font-family:system-ui,sans-serif;cursor:pointer;overflow:hidden;user-select:none;-webkit-user-select:none}
+.hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.45;font-size:18px;pointer-events:none}
+.heart{position:fixed;font-size:48px;line-height:1;pointer-events:none;animation:pop .8s ease-out forwards;will-change:transform,opacity}
+@keyframes pop{0%{opacity:1;transform:scale(.5) translateY(0)}100%{opacity:0;transform:scale(1.6) translateY(-40px)}}
+</style>
+</head>
+<body>
+<div class="hint">tap for a heart</div>
+<script>
+document.body.addEventListener('click',function(e){
+  var h=document.createElement('div');
+  h.className='heart';
+  h.textContent='\u2764';
+  h.style.left=(e.clientX-24)+'px';
+  h.style.top=(e.clientY-24)+'px';
+  document.body.appendChild(h);
+  setTimeout(function(){h.remove();},800);
+});
+</script>
+</body>
+</html>

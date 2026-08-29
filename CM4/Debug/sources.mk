@@ -30,6 +30,7 @@ Drivers/BSP/STM32H7xx_Nucleo \
 Drivers/STM32H7xx_HAL_Driver \
 LWIP/App \
 LWIP/Target \
+MODULEs/net/http \
 Middlewares/Third_Party/FreeRTOS \
 Middlewares/Third_Party/LwIP \
 
