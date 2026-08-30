@@ -16,7 +16,6 @@ import socket
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Iterable
 
 try:
     from zeroconf import ServiceInfo, Zeroconf
@@ -34,6 +33,16 @@ HOP_BY_HOP = {
     "transfer-encoding",
     "upgrade",
 }
+
+# Browser noise — answer locally so the board sees one request at a time.
+NOISE_PATHS = {
+    "/favicon.ico",
+    "/robots.txt",
+}
+NOISE_PREFIXES = ("/apple-touch-icon",)
+
+# STM32 HTTP server handles one connection at a time; serialize upstream access.
+_board_lock = threading.Lock()
 
 
 def pick_advertise_ip(exclude_prefix: str) -> str:
@@ -60,13 +69,24 @@ def pick_advertise_ip(exclude_prefix: str) -> str:
     )
 
 
-def filter_headers(headers: Iterable[tuple[str, str]]) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for key, value in headers:
-        if key.lower() in HOP_BY_HOP:
-            continue
-        out[key] = value
-    return out
+def request_path(path: str) -> str:
+    return path.split("?", 1)[0]
+
+
+def is_noise_path(path: str) -> bool:
+    p = request_path(path)
+    if p in NOISE_PATHS:
+        return True
+    return any(p.startswith(prefix) for prefix in NOISE_PREFIXES)
+
+
+def board_request_headers(board_host: str) -> dict[str, str]:
+    """Minimal request to the board — never forward browser headers."""
+    return {
+        "Host": board_host,
+        "Connection": "close",
+        "Accept": "*/*",
+    }
 
 
 def make_handler(board_host: str, board_port: int) -> type[BaseHTTPRequestHandler]:
@@ -76,38 +96,66 @@ def make_handler(board_host: str, board_port: int) -> type[BaseHTTPRequestHandle
         def log_message(self, fmt: str, *args) -> None:
             print(f"[proxy] {self.address_string()} - {fmt % args}")
 
+        def _send_bad_gateway(self, exc: BaseException) -> None:
+            print(f"[proxy] upstream error: {exc}", file=sys.stderr)
+            if self.wfile.closed:
+                return
+            try:
+                self.send_error(502, "Bad Gateway")
+            except OSError:
+                pass
+
+        def _respond_noise(self) -> None:
+            if self.command == "HEAD":
+                self.send_response(204)
+                self.end_headers()
+                return
+            self.send_response(204)
+            self.end_headers()
+
         def _forward(self) -> None:
+            if is_noise_path(self.path):
+                self._respond_noise()
+                return
+
             length = int(self.headers.get("Content-Length", "0") or "0")
             body = self.rfile.read(length) if length > 0 else None
 
             upstream = http.client.HTTPConnection(
                 board_host, board_port, timeout=10
             )
+            headers_sent = False
             try:
-                upstream.request(
-                    self.command,
-                    self.path,
-                    body=body,
-                    headers=filter_headers(self.headers.items()),
-                )
-                response = upstream.getresponse()
-                self.send_response(response.status, response.reason)
+                with _board_lock:
+                    upstream.request(
+                        self.command,
+                        self.path,
+                        body=body,
+                        headers=board_request_headers(board_host),
+                    )
+                    response = upstream.getresponse()
+                    self.send_response(response.status, response.reason)
 
-                for key, value in response.getheaders():
-                    if key.lower() in HOP_BY_HOP:
-                        continue
-                    self.send_header(key, value)
-                self.end_headers()
+                    for key, value in response.getheaders():
+                        if key.lower() in HOP_BY_HOP:
+                            continue
+                        self.send_header(key, value)
+                    self.end_headers()
+                    headers_sent = True
 
-                while True:
-                    chunk = response.read(4096)
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
+                    while True:
+                        chunk = response.read(4096)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
             except OSError as exc:
-                print(f"[proxy] upstream error: {exc}", file=sys.stderr)
-                if not self.wfile.closed:
-                    self.send_error(502, f"Bad Gateway: {exc}")
+                if headers_sent:
+                    print(
+                        f"[proxy] upstream dropped mid-response: {exc}",
+                        file=sys.stderr,
+                    )
+                else:
+                    self._send_bad_gateway(exc)
             finally:
                 upstream.close()
 
