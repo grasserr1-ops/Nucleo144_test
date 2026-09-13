@@ -7,22 +7,51 @@
 <style>
 html,body{margin:0;height:100%;background:#111;color:#eee;font-family:system-ui,sans-serif;cursor:pointer;overflow:hidden;user-select:none;-webkit-user-select:none}
 .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.45;font-size:18px;pointer-events:none}
-.heart{position:fixed;font-size:48px;line-height:1;pointer-events:none;animation:pop .8s ease-out forwards;will-change:transform,opacity}
+.heart{position:fixed;font-size:48px;line-height:1;pointer-events:none;animation:pop .8s ease-out forwards;will-change:transform,opacity;text-align:center}
+.heart .t{display:block;font-size:14px;margin-top:4px;opacity:.95}
 @keyframes pop{0%{opacity:1;transform:scale(.5) translateY(0)}100%{opacity:0;transform:scale(1.6) translateY(-40px)}}
 </style>
 </head>
 <body>
 <div class="hint">tap for a heart</div>
 <script>
-document.body.addEventListener('click',function(e){
+function spawnHeart(x,y,label){
   var h=document.createElement('div');
   h.className='heart';
-  h.textContent='\u2764';
-  h.style.left=(e.clientX-24)+'px';
-  h.style.top=(e.clientY-24)+'px';
+  h.style.left=(x-24)+'px';
+  h.style.top=(y-24)+'px';
+  h.innerHTML='\u2764'+(label?'<span class="t"></span>':'');
+  if(label){h.querySelector('.t').textContent=label;}
   document.body.appendChild(h);
-  setTimeout(function(){h.remove();},800);
+  setTimeout(function(){h.remove();},label?2000:800);
+}
+function loveHeart(){
+  var now=Date.now();
+  if(now-loveHeart._t<400)return;
+  loveHeart._t=now;
+  spawnHeart(window.innerWidth/2,window.innerHeight/2,'love you');
+}
+loveHeart._t=0;
+document.body.addEventListener('click',function(e){
+  spawnHeart(e.clientX,e.clientY,null);
+  try{fetch('/api/click',{method:'POST',keepalive:true});}catch(err){}
 });
+var lastLove=-1;
+function pollLove(){
+  fetch('/api/love',{cache:'no-store'}).then(function(r){return r.text();})
+  .then(function(t){
+    var n=parseInt(t,10);
+    if(isNaN(n))return;
+    if(lastLove<0){lastLove=n;return;}
+    if(n!==lastLove){lastLove=n;loveHeart();}
+  }).catch(function(){});
+}
+setInterval(pollLove,200);
+pollLove();
+try{
+  var es=new EventSource('/api/events');
+  es.onmessage=function(){loveHeart();};
+}catch(err){}
 </script>
 </body>
 </html>

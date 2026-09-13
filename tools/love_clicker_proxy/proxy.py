@@ -14,7 +14,6 @@ import argparse
 import http.client
 import socket
 import sys
-import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 try:
@@ -40,9 +39,6 @@ NOISE_PATHS = {
     "/robots.txt",
 }
 NOISE_PREFIXES = ("/apple-touch-icon",)
-
-# STM32 HTTP server handles one connection at a time; serialize upstream access.
-_board_lock = threading.Lock()
 
 
 def pick_advertise_ip(exclude_prefix: str) -> str:
@@ -80,12 +76,12 @@ def is_noise_path(path: str) -> bool:
     return any(p.startswith(prefix) for prefix in NOISE_PREFIXES)
 
 
-def board_request_headers(board_host: str) -> dict[str, str]:
+def board_request_headers(board_host: str, *, keep_alive: bool = False) -> dict[str, str]:
     """Minimal request to the board — never forward browser headers."""
     return {
         "Host": board_host,
-        "Connection": "close",
-        "Accept": "*/*",
+        "Connection": "keep-alive" if keep_alive else "close",
+        "Accept": "text/event-stream" if keep_alive else "*/*",
     }
 
 
@@ -118,36 +114,46 @@ def make_handler(board_host: str, board_port: int) -> type[BaseHTTPRequestHandle
                 self._respond_noise()
                 return
 
+            is_sse = request_path(self.path) == "/api/events"
             length = int(self.headers.get("Content-Length", "0") or "0")
             body = self.rfile.read(length) if length > 0 else None
 
+            # SSE streams forever — no short socket timeout
             upstream = http.client.HTTPConnection(
-                board_host, board_port, timeout=10
+                board_host, board_port, timeout=None if is_sse else 10
             )
             headers_sent = False
             try:
-                with _board_lock:
-                    upstream.request(
-                        self.command,
-                        self.path,
-                        body=body,
-                        headers=board_request_headers(board_host),
-                    )
-                    response = upstream.getresponse()
-                    self.send_response(response.status, response.reason)
+                upstream.request(
+                    self.command,
+                    self.path,
+                    body=body,
+                    headers=board_request_headers(board_host, keep_alive=is_sse),
+                )
+                response = upstream.getresponse()
+                self.send_response(response.status, response.reason)
 
-                    for key, value in response.getheaders():
-                        if key.lower() in HOP_BY_HOP:
-                            continue
-                        self.send_header(key, value)
-                    self.end_headers()
-                    headers_sent = True
+                for key, value in response.getheaders():
+                    if key.lower() in HOP_BY_HOP:
+                        continue
+                    self.send_header(key, value)
+                if is_sse:
+                    self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                headers_sent = True
 
-                    while True:
+                while True:
+                    if is_sse and hasattr(response, "read1"):
+                        chunk = response.read1(4096)
+                    else:
                         chunk = response.read(4096)
-                        if not chunk:
-                            break
-                        self.wfile.write(chunk)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    try:
+                        self.wfile.flush()
+                    except OSError:
+                        break
             except OSError as exc:
                 if headers_sent:
                     print(

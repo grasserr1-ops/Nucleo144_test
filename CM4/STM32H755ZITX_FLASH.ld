@@ -151,11 +151,11 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM
 
-  /* LwIP heap in D2 SRAM2 (CM4 alias of 0x30020000) */
+  /* LwIP heap in D2 SRAM2 (CM4 alias of 0x30020000); 48K before ETH @ 0x10040000 */
   .lwip_heap (NOLOAD) :
   {
     . = ABSOLUTE(0x10020000);
-    . = . + 0x4000;
+    . = . + 0xC000;
   } >RAM
 
   /* ETH DMA descriptors and RX pool in D2 SRAM3 (CM4 alias of 0x30040000) */

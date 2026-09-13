@@ -1,6 +1,8 @@
 #include "web_ipc_server.h"
 #include "web_page.h"
 #include "web_ipc_shared.h"
+#include "MODULEs/periphery/led/led.h"
+#include "MODULEs/periphery/led/led_config.h"
 #include "cmsis_os2.h"
 #include "stm32h7xx_hal.h"
 #include <string.h>
@@ -40,12 +42,32 @@ static void web_ipc_publish(void)
   HAL_HSEM_Release(HSEM_ID_WEB, 0);
 }
 
+static void web_ipc_handle_click_locked(web_ipc_shared_t *sh)
+{
+  if (sh->click_pending == 0U) {
+    return;
+  }
+  sh->click_pending = 0U;
+  __DSB();
+  (void)reset_hard_led_flag(RED_LED);
+  (void)blink_led(RED_LED, 10U);
+}
+
 static void web_ipc_server_task(void *argument)
 {
   (void)argument;
   web_ipc_shared_t *sh = web_ipc_shared();
 
   __HAL_RCC_HSEM_CLK_ENABLE();
+  {
+    web_ipc_shared_t *sh0 = web_ipc_shared();
+    while (HAL_HSEM_Take(HSEM_ID_WEB, 0) != HAL_OK) {
+      osDelay(1);
+    }
+    sh0->love_event_seq = 0U;
+    sh0->click_pending = 0U;
+    HAL_HSEM_Release(HSEM_ID_WEB, 0);
+  }
   web_ipc_publish();
 
   for (;;) {
@@ -53,6 +75,7 @@ static void web_ipc_server_task(void *argument)
       if (sh->state == WEB_IPC_STATE_REQ) {
         web_ipc_publish_locked(sh);
       }
+      web_ipc_handle_click_locked(sh);
       HAL_HSEM_Release(HSEM_ID_WEB, 0);
     }
     osDelay(20);

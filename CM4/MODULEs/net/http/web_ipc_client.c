@@ -43,3 +43,29 @@ int web_ipc_client_fetch(uint8_t *dst, size_t dst_cap, size_t *out_len,
 
   return -1;
 }
+
+int web_ipc_client_post_click(void)
+{
+  web_ipc_shared_t *sh = web_ipc_shared();
+  uint32_t waited = 0;
+
+  __HAL_RCC_HSEM_CLK_ENABLE();
+
+  while (waited <= 200U) {
+    if (HAL_HSEM_Take(HSEM_ID_WEB, 0) == HAL_OK) {
+      sh->click_pending = 1U;
+      __DSB();
+      HAL_HSEM_Release(HSEM_ID_WEB, 0);
+      return 0;
+    }
+    osDelay(5);
+    waited += 5U;
+  }
+
+  return -1;
+}
+
+uint32_t web_ipc_client_love_seq(void)
+{
+  return web_ipc_shared()->love_event_seq;
+}

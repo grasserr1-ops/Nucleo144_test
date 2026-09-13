@@ -42,6 +42,10 @@ typedef struct {
   volatile uint32_t content_type;
   char path[WEB_IPC_PATH_SIZE];
   uint8_t data[WEB_IPC_DATA_SIZE];
+  /* CM4 posts clicks; CM7 clears after starting LED pulse */
+  volatile uint32_t click_pending;
+  /* CM7 increments on USER button; CM4 SSE pushes to browsers */
+  volatile uint32_t love_event_seq;
 } web_ipc_shared_t;
 
 static inline web_ipc_shared_t *web_ipc_shared(void)

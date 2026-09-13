@@ -53,7 +53,8 @@
 #define MEM_ALIGNMENT 4
 /*----- CM4 D2 SRAM2 alias: heap separate from ETH DMA @ 0x10040000 -----*/
 #define LWIP_RAM_HEAP_POINTER 0x10020000
-#define MEM_SIZE 16360
+/* Larger heap for concurrent NETCONN_COPY responses (~20 clients) */
+#define MEM_SIZE (48 * 1024)
 /*----- Value supported for H7 devices: 1 -----*/
 #define LWIP_SUPPORT_CUSTOM_PBUF 1
 /*----- Value in opt.h for LWIP_ETHERNET: LWIP_ARP || PPPOE_SUPPORT -*/
@@ -75,7 +76,7 @@
 /*----- Value in opt.h for TCPIP_THREAD_PRIO: 1 -----*/
 #define TCPIP_THREAD_PRIO 24
 /*----- Value in opt.h for TCPIP_MBOX_SIZE: 0 -----*/
-#define TCPIP_MBOX_SIZE 6
+#define TCPIP_MBOX_SIZE 16
 /*----- Value in opt.h for SLIPIF_THREAD_STACKSIZE: 0 -----*/
 #define SLIPIF_THREAD_STACKSIZE 1024
 /*----- Value in opt.h for SLIPIF_THREAD_PRIO: 1 -----*/
@@ -89,7 +90,7 @@
 /*----- Value in opt.h for DEFAULT_TCP_RECVMBOX_SIZE: 0 -----*/
 #define DEFAULT_TCP_RECVMBOX_SIZE 6
 /*----- Value in opt.h for DEFAULT_ACCEPTMBOX_SIZE: 0 -----*/
-#define DEFAULT_ACCEPTMBOX_SIZE 6
+#define DEFAULT_ACCEPTMBOX_SIZE 20
 /*----- Value in opt.h for RECV_BUFSIZE_DEFAULT: INT_MAX -----*/
 #define RECV_BUFSIZE_DEFAULT 2000000000
 /*----- Value in opt.h for LWIP_STATS: 1 -----*/
@@ -112,7 +113,16 @@
 #define CHECKSUM_CHECK_ICMP6 0
 /*-----------------------------------------------------------------------------*/
 /* USER CODE BEGIN 1 */
-
+/* Up to 20 concurrent HTTP clients + 1 listen socket */
+#define TCP_LISTEN_BACKLOG          1
+#define MEMP_NUM_TCP_PCB            24
+#define MEMP_NUM_TCP_PCB_LISTEN     2
+#define MEMP_NUM_NETCONN            24
+#define MEMP_NUM_NETBUF             24
+#define MEMP_NUM_TCPIP_MSG_INPKT    16
+#define MEMP_NUM_TCPIP_MSG_API      16
+#define TCP_DEFAULT_LISTEN_BACKLOG  20
+#define LWIP_SO_RCVTIMEO            1
 /* USER CODE END 1 */
 
 #ifdef __cplusplus

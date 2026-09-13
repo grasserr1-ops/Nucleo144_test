@@ -26,6 +26,8 @@
 #include "MODULEs/periphery/led/led.h"
 #include "MODULEs/periphery/led/led_config.h"
 #include "MODULEs/net/web/web_ipc_server.h"
+#include "web_ipc_shared.h"
+#include "stm32h7xx_hal.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -343,14 +345,19 @@ void StartDefaultTask(void *argument)
 	cycle_blink_led(GREEN_LED, 1000);
 	/* Infinite loop */
 	for (;;) {
-		/* -- Sample board code for User push-button in interrupt mode ---- */
 		if (BspButtonState == BUTTON_PRESSED) {
-			/* Update button state */
 			BspButtonState = BUTTON_RELEASED;
-			/* -- Sample board code to toggle leds ---- */
-			hard_toggle_led(YELLOW_LED);
-			hard_toggle_led(RED_LED);
-			/* ..... Perform your action ..... */
+			/* Broadcast "love you" heart to all SSE web clients via CM4 */
+			web_ipc_shared_t *sh = web_ipc_shared();
+			__HAL_RCC_HSEM_CLK_ENABLE();
+			if (HAL_HSEM_Take(HSEM_ID_WEB, 0) == HAL_OK) {
+				sh->love_event_seq++;
+				__DSB();
+				HAL_HSEM_Release(HSEM_ID_WEB, 0);
+			} else {
+				sh->love_event_seq++;
+				__DSB();
+			}
 		}
 		osDelay(1);
 	}
