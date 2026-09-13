@@ -8,7 +8,8 @@
 2. Не подключать плату к LAN, где уже есть другой DHCP (роутер).
 3. `pip install -r requirements.txt`
 4. Положить `privatekey-1122907.pem` рядом с `proxy.py` / `.exe` (вручную на каждый хост).
-5. `python proxy.py` — прокси + mDNS + SSH-туннель на VPS.
+5. `python proxy.py` — прокси + mDNS + SSH; при ребуте платы сам гасит и поднимает proxy/SSH снова.
+
 
 Открыть: http://195.209.218.245:8080/
 

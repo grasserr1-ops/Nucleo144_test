@@ -233,7 +233,7 @@ static void http_serve_conn(struct netconn *conn)
 
   if (http_path_is_love(req, req_len)) {
     char body[16];
-    char hdr[128];
+    char hdr[256];
     int blen = snprintf(body, sizeof(body), "%lu",
                         (unsigned long)web_ipc_client_love_seq());
     int hlen = snprintf(hdr, sizeof(hdr),
@@ -241,7 +241,9 @@ static void http_serve_conn(struct netconn *conn)
                         "Content-Type: text/plain; charset=utf-8\r\n"
                         "Content-Length: %d\r\n"
                         "Connection: close\r\n"
-                        "Cache-Control: no-store\r\n"
+                        "Cache-Control: no-store, no-cache, must-revalidate\r\n"
+                        "Pragma: no-cache\r\n"
+                        "Expires: 0\r\n"
                         "\r\n",
                         blen);
     if (hlen > 0) {

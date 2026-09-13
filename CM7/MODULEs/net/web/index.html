@@ -37,21 +37,22 @@ document.body.addEventListener('click',function(e){
   try{fetch('/api/click',{method:'POST',keepalive:true});}catch(err){}
 });
 var lastLove=-1;
+var loveInFlight=false;
 function pollLove(){
-  fetch('/api/love',{cache:'no-store'}).then(function(r){return r.text();})
+  if(loveInFlight)return;
+  loveInFlight=true;
+  fetch('/api/love?t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})
+  .then(function(r){return r.text();})
   .then(function(t){
     var n=parseInt(t,10);
     if(isNaN(n))return;
     if(lastLove<0){lastLove=n;return;}
     if(n!==lastLove){lastLove=n;loveHeart();}
-  }).catch(function(){});
+  }).catch(function(){})
+  .then(function(){loveInFlight=false;});
 }
-setInterval(pollLove,200);
+setInterval(pollLove,500);
 pollLove();
-try{
-  var es=new EventSource('/api/events');
-  es.onmessage=function(){loveHeart();};
-}catch(err){}
 </script>
 </body>
 </html>

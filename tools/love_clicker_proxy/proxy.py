@@ -5,6 +5,9 @@ Reverse HTTP proxy for STM32 board on direct Ethernet.
 Phone / Internet -> VPS:8080 -ssh-> PC proxy:8080 -> board :80
 Also advertises love_clicker.local via mDNS on LAN.
 
+On board link loss (e.g. reset), stops HTTP proxy + SSH and brings them
+back up once the board answers again — no manual script restart needed.
+
 Requires: pip install -r requirements.txt, OpenSSH client, VPS key.
 """
 
@@ -52,6 +55,9 @@ DEFAULT_SSH_HOST = "195.209.218.245"
 DEFAULT_SSH_USER = "ubuntu"
 DEFAULT_SSH_KEY = str(default_ssh_key_path())
 DEFAULT_SSH_REMOTE_PORT = 8080
+BOARD_HEALTH_INTERVAL_S = 2.0
+BOARD_HEALTH_FAILS = 3
+BOARD_WAIT_INTERVAL_S = 2.0
 
 HOP_BY_HOP = {
     "connection",
@@ -74,12 +80,38 @@ NOISE_PREFIXES = ("/apple-touch-icon",)
 DEFAULT_BOARD_IP = "192.168.11.1"
 
 
+class ReusableThreadingHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def probe_tcp(host: str, port: int, timeout: float = 0.4) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
     except OSError:
         return False
+
+
+def probe_board_http(host: str, port: int, timeout: float = 1.5) -> bool:
+    """True if board HTTP stack answers (used for reboot recovery)."""
+    conn = http.client.HTTPConnection(host, port, timeout=timeout)
+    try:
+        conn.request(
+            "GET",
+            "/api/love",
+            headers={"Host": host, "Connection": "close", "Cache-Control": "no-store"},
+        )
+        resp = conn.getresponse()
+        resp.read()
+        return resp.status < 500
+    except OSError:
+        return False
+    finally:
+        try:
+            conn.close()
+        except OSError:
+            pass
 
 
 def board_ip_candidates() -> list[str]:
@@ -111,6 +143,22 @@ def discover_board_ip(explicit: str | None, port: int) -> str:
         if probe_tcp(ip, port):
             return ip
     return DEFAULT_BOARD_IP
+
+
+def wait_for_board(
+    explicit: str | None,
+    port: int,
+    stop: threading.Event,
+) -> str | None:
+    """Block until board HTTP is up (or stop). Returns board IP."""
+    while not stop.is_set():
+        ip = discover_board_ip(explicit, port)
+        if probe_board_http(ip, port):
+            return ip
+        print(f"[watch] board not ready ({ip}:{port}), retrying...")
+        if stop.wait(BOARD_WAIT_INTERVAL_S):
+            break
+    return None
 
 
 def pick_advertise_ip(exclude_prefix: str) -> str:
@@ -314,6 +362,7 @@ class SshReverseTunnel:
                 "(put privatekey-1122907.pem next to the .exe / proxy.py)"
             )
 
+        self._stop.clear()
         self._thread = threading.Thread(
             target=self._run,
             name="SshReverseTunnel",
@@ -481,28 +530,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
-
-    board_ip = discover_board_ip(args.board_ip or None, args.board_port)
-    board_prefix = ".".join(board_ip.split(".")[:3]) + "."
-    advertise_ip = args.advertise_ip or pick_advertise_ip(board_prefix)
-
+def run_session(
+    *,
+    args: argparse.Namespace,
+    board_ip: str,
+    stop: threading.Event,
+) -> None:
+    """Run HTTP proxy + SSH until board is lost or global stop."""
     handler = make_handler(board_ip, args.board_port)
-    server = ThreadingHTTPServer(
+    server = ReusableThreadingHTTPServer(
         (args.listen_host, args.listen_port),
         handler,
     )
-
-    mdns: MdnsAdvertiser | None = None
-    if not args.no_mdns:
-        mdns = MdnsAdvertiser(
-            hostname=args.hostname,
-            ip=advertise_ip,
-            port=args.listen_port,
-            service_name=args.service_name,
-        )
-        mdns.register()
 
     ssh: SshReverseTunnel | None = None
     if not args.no_ssh:
@@ -519,26 +558,96 @@ def main() -> int:
             print(f"[ssh] disabled: {exc}", file=sys.stderr)
             ssh = None
 
+    session_done = threading.Event()
+
+    def watchdog() -> None:
+        fails = 0
+        while not stop.is_set() and not session_done.is_set():
+            if probe_board_http(board_ip, args.board_port):
+                fails = 0
+            else:
+                fails += 1
+                print(
+                    f"[watch] board health fail {fails}/{BOARD_HEALTH_FAILS}",
+                    file=sys.stderr,
+                )
+                if fails >= BOARD_HEALTH_FAILS:
+                    print(
+                        "[watch] board lost — restarting proxy + SSH",
+                        file=sys.stderr,
+                    )
+                    session_done.set()
+                    server.shutdown()
+                    return
+            if stop.wait(BOARD_HEALTH_INTERVAL_S) or session_done.wait(0):
+                break
+
+    wd = threading.Thread(target=watchdog, name="BoardWatchdog", daemon=True)
+    wd.start()
+
+    print(f"[watch] session up — board http://{board_ip}:{args.board_port}/")
+    try:
+        server.serve_forever()
+    finally:
+        session_done.set()
+        if ssh is not None:
+            print("[watch] stopping SSH...")
+            ssh.stop()
+        server.server_close()
+        wd.join(timeout=BOARD_HEALTH_INTERVAL_S + 1.0)
+        print("[watch] session stopped")
+
+
+def main() -> int:
+    args = parse_args()
+    stop = threading.Event()
+
+    board_guess = discover_board_ip(args.board_ip or None, args.board_port)
+    board_prefix = ".".join(board_guess.split(".")[:3]) + "."
+    advertise_ip = args.advertise_ip or pick_advertise_ip(board_prefix)
+
+    mdns: MdnsAdvertiser | None = None
+    if not args.no_mdns:
+        mdns = MdnsAdvertiser(
+            hostname=args.hostname,
+            ip=advertise_ip,
+            port=args.listen_port,
+            service_name=args.service_name,
+        )
+        mdns.register()
+
     url = f"http://{args.hostname}.local:{args.listen_port}/"
     fallback = f"http://{advertise_ip}:{args.listen_port}/"
+    public = f"http://{args.ssh_host}:{args.ssh_remote_port}/"
 
-    print("Love Clicker proxy")
-    print(f"  board (Ethernet): http://{board_ip}:{args.board_port}/")
+    print("Love Clicker proxy (auto-restart on board loss)")
     print(f"  listen:           {args.listen_host}:{args.listen_port}")
     print(f"  mDNS:             {url}")
     print(f"  fallback (Wi-Fi): {fallback}")
-    if ssh is not None:
-        print(f"  public (VPS):     {ssh.public_url}")
+    if not args.no_ssh:
+        print(f"  public (VPS):     {public}")
     print("Press Ctrl+C to stop.")
 
     try:
-        server.serve_forever()
+        while not stop.is_set():
+            print("[watch] waiting for board...")
+            board_ip = wait_for_board(args.board_ip or None, args.board_port, stop)
+            if board_ip is None or stop.is_set():
+                break
+            try:
+                run_session(args=args, board_ip=board_ip, stop=stop)
+            except OSError as exc:
+                print(f"[watch] proxy bind/error: {exc}", file=sys.stderr)
+            if stop.is_set():
+                break
+            # Brief pause before rebinding listen port / SSH
+            if stop.wait(1.0):
+                break
     except KeyboardInterrupt:
         print("\nStopping...")
+        stop.set()
     finally:
-        if ssh is not None:
-            ssh.stop()
-        server.shutdown()
+        stop.set()
         if mdns is not None:
             mdns.close()
 

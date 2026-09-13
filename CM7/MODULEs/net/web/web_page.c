@@ -1,6 +1,6 @@
 #include "web_page.h"
 
-/* Tap → local heart + LED; USER button → all clients show "love you" heart. */
+/* Tap → local heart + LED; USER button → all clients show "love you" heart (poll only). */
 static const char web_index_html[] =
 "<!DOCTYPE html>\n"
 "<html lang=\"en\">\n"
@@ -46,21 +46,22 @@ static const char web_index_html[] =
 "  try{fetch('/api/click',{method:'POST',keepalive:true});}catch(err){}\n"
 "});\n"
 "var lastLove=-1;\n"
+"var loveInFlight=false;\n"
 "function pollLove(){\n"
-"  fetch('/api/love',{cache:'no-store'}).then(function(r){return r.text();})\n"
+"  if(loveInFlight)return;\n"
+"  loveInFlight=true;\n"
+"  fetch('/api/love?t='+Date.now(),{cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}})\n"
+"  .then(function(r){return r.text();})\n"
 "  .then(function(t){\n"
 "    var n=parseInt(t,10);\n"
 "    if(isNaN(n))return;\n"
 "    if(lastLove<0){lastLove=n;return;}\n"
 "    if(n!==lastLove){lastLove=n;loveHeart();}\n"
-"  }).catch(function(){});\n"
+"  }).catch(function(){})\n"
+"  .then(function(){loveInFlight=false;});\n"
 "}\n"
-"setInterval(pollLove,200);\n"
+"setInterval(pollLove,500);\n"
 "pollLove();\n"
-"try{\n"
-"  var es=new EventSource('/api/events');\n"
-"  es.onmessage=function(){loveHeart();};\n"
-"}catch(err){}\n"
 "</script>\n"
 "</body>\n"
 "</html>\n";
