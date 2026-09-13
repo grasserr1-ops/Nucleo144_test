@@ -11,3 +11,5 @@
 *.cyclo
 *makefile
 *.json
+*.pem
+privatekey-1122907.pem

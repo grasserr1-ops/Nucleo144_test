@@ -2,25 +2,36 @@
 """
 Reverse HTTP proxy for STM32 board on direct Ethernet.
 
-Phone (Wi-Fi) -> http://love_clicker.local:8080/ -> PC proxy -> board :80
+Phone / Internet -> VPS:8080 -ssh-> PC proxy:8080 -> board :80
+Also advertises love_clicker.local via mDNS on LAN.
 
-Requires: pip install -r requirements.txt
-Allow inbound TCP on LISTEN_PORT and UDP 5353 in Windows Firewall (private network).
+Requires: pip install -r requirements.txt, OpenSSH client, VPS key.
 """
 
 from __future__ import annotations
 
 import argparse
 import http.client
+import os
+import shutil
 import socket
+import subprocess
 import sys
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 try:
     from zeroconf import ServiceInfo, Zeroconf
 except ImportError:
     print("Missing dependency: pip install -r requirements.txt", file=sys.stderr)
     sys.exit(1)
+
+DEFAULT_SSH_HOST = "195.209.218.245"
+DEFAULT_SSH_USER = "ubuntu"
+DEFAULT_SSH_KEY = str(Path(__file__).resolve().parent / "privatekey-1122907.pem")
+DEFAULT_SSH_REMOTE_PORT = 8080
 
 HOP_BY_HOP = {
     "connection",
@@ -39,6 +50,47 @@ NOISE_PATHS = {
     "/robots.txt",
 }
 NOISE_PREFIXES = ("/apple-touch-icon",)
+
+DEFAULT_BOARD_IP = "192.168.11.1"
+
+
+def probe_tcp(host: str, port: int, timeout: float = 0.4) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def board_ip_candidates() -> list[str]:
+    """Prefer board DHCP server (.1), then .1 of any local Ethernet-like address."""
+    seen: list[str] = []
+
+    def add(ip: str) -> None:
+        if ip and ip not in seen:
+            seen.append(ip)
+
+    add(DEFAULT_BOARD_IP)
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            ip = info[4][0]
+            if ip.startswith("127."):
+                continue
+            parts = ip.split(".")
+            if len(parts) == 4:
+                add(".".join(parts[:3] + ["1"]))
+    except OSError:
+        pass
+    return seen
+
+
+def discover_board_ip(explicit: str | None, port: int) -> str:
+    if explicit:
+        return explicit
+    for ip in board_ip_candidates():
+        if probe_tcp(ip, port):
+            return ip
+    return DEFAULT_BOARD_IP
 
 
 def pick_advertise_ip(exclude_prefix: str) -> str:
@@ -204,14 +256,144 @@ class MdnsAdvertiser:
         self._zc.close()
 
 
+class SshReverseTunnel:
+    """Background `ssh -R` tunnel; killed when stop() is called."""
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        user: str,
+        identity_file: str,
+        local_port: int,
+        remote_port: int,
+        remote_bind: str = "0.0.0.0",
+        local_host: str = "127.0.0.1",
+    ) -> None:
+        self._host = host
+        self._user = user
+        self._identity_file = identity_file
+        self._local_port = local_port
+        self._remote_port = remote_port
+        self._remote_bind = remote_bind
+        self._local_host = local_host
+        self._stop = threading.Event()
+        self._proc: subprocess.Popen[str] | None = None
+        self._thread: threading.Thread | None = None
+
+    @property
+    def public_url(self) -> str:
+        return f"http://{self._host}:{self._remote_port}/"
+
+    def start(self) -> None:
+        if shutil.which("ssh") is None:
+            raise RuntimeError("ssh not found in PATH (install OpenSSH client)")
+        if not Path(self._identity_file).is_file():
+            raise RuntimeError(
+                f"SSH key not found: {self._identity_file} "
+                "(put privatekey-1122907.pem next to proxy.py)"
+            )
+
+        self._thread = threading.Thread(
+            target=self._run,
+            name="SshReverseTunnel",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._kill_proc()
+        if self._thread is not None:
+            self._thread.join(timeout=5)
+            self._thread = None
+
+    def _kill_proc(self) -> None:
+        proc = self._proc
+        if proc is None:
+            return
+        if proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+        self._proc = None
+
+    def _build_cmd(self) -> list[str]:
+        remote = f"{self._remote_bind}:{self._remote_port}:{self._local_host}:{self._local_port}"
+        return [
+            "ssh",
+            "-N",
+            "-i",
+            self._identity_file,
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ExitOnForwardFailure=yes",
+            "-o",
+            "ServerAliveInterval=30",
+            "-o",
+            "ServerAliveCountMax=3",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-R",
+            remote,
+            f"{self._user}@{self._host}",
+        ]
+
+    def _run(self) -> None:
+        backoff = 2.0
+        while not self._stop.is_set():
+            cmd = self._build_cmd()
+            print(
+                f"[ssh] tunnel: {self._remote_bind}:{self._remote_port}"
+                f" -> {self._local_host}:{self._local_port} via {self._user}@{self._host}"
+            )
+            try:
+                self._proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=None,
+                )
+            except OSError as exc:
+                print(f"[ssh] failed to start: {exc}", file=sys.stderr)
+                if self._stop.wait(backoff):
+                    break
+                backoff = min(backoff * 2, 30.0)
+                continue
+
+            assert self._proc is not None
+            while not self._stop.is_set():
+                code = self._proc.poll()
+                if code is not None:
+                    print(f"[ssh] exited ({code})", file=sys.stderr)
+                    self._proc = None
+                    break
+                time.sleep(0.3)
+
+            if self._stop.is_set():
+                self._kill_proc()
+                break
+
+            if self._stop.wait(backoff):
+                break
+            backoff = min(backoff * 2, 30.0)
+            print("[ssh] reconnecting...")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="HTTP reverse proxy to STM32 board + mDNS .local name"
     )
     parser.add_argument(
         "--board-ip",
-        default="192.168.11.101",
-        help="Board static IP on direct Ethernet (default: 192.168.11.101)",
+        default="",
+        help="Board IP (default: auto-discover, usually 192.168.11.1)",
     )
     parser.add_argument(
         "--board-port",
@@ -250,16 +432,43 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not register love_clicker.local via mDNS",
     )
+    parser.add_argument(
+        "--no-ssh",
+        action="store_true",
+        help="Do not open SSH reverse tunnel to VPS",
+    )
+    parser.add_argument(
+        "--ssh-host",
+        default=DEFAULT_SSH_HOST,
+        help=f"VPS host (default: {DEFAULT_SSH_HOST})",
+    )
+    parser.add_argument(
+        "--ssh-user",
+        default=DEFAULT_SSH_USER,
+        help=f"SSH user (default: {DEFAULT_SSH_USER})",
+    )
+    parser.add_argument(
+        "--ssh-key",
+        default=DEFAULT_SSH_KEY,
+        help=f"SSH private key path (default: {DEFAULT_SSH_KEY})",
+    )
+    parser.add_argument(
+        "--ssh-remote-port",
+        type=int,
+        default=DEFAULT_SSH_REMOTE_PORT,
+        help=f"Remote port on VPS (default: {DEFAULT_SSH_REMOTE_PORT})",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
 
-    board_prefix = ".".join(args.board_ip.split(".")[:3]) + "."
+    board_ip = discover_board_ip(args.board_ip or None, args.board_port)
+    board_prefix = ".".join(board_ip.split(".")[:3]) + "."
     advertise_ip = args.advertise_ip or pick_advertise_ip(board_prefix)
 
-    handler = make_handler(args.board_ip, args.board_port)
+    handler = make_handler(board_ip, args.board_port)
     server = ThreadingHTTPServer(
         (args.listen_host, args.listen_port),
         handler,
@@ -275,14 +484,31 @@ def main() -> int:
         )
         mdns.register()
 
+    ssh: SshReverseTunnel | None = None
+    if not args.no_ssh:
+        ssh = SshReverseTunnel(
+            host=args.ssh_host,
+            user=args.ssh_user,
+            identity_file=os.path.expanduser(args.ssh_key),
+            local_port=args.listen_port,
+            remote_port=args.ssh_remote_port,
+        )
+        try:
+            ssh.start()
+        except RuntimeError as exc:
+            print(f"[ssh] disabled: {exc}", file=sys.stderr)
+            ssh = None
+
     url = f"http://{args.hostname}.local:{args.listen_port}/"
     fallback = f"http://{advertise_ip}:{args.listen_port}/"
 
     print("Love Clicker proxy")
-    print(f"  board (Ethernet): http://{args.board_ip}:{args.board_port}/")
+    print(f"  board (Ethernet): http://{board_ip}:{args.board_port}/")
     print(f"  listen:           {args.listen_host}:{args.listen_port}")
     print(f"  mDNS:             {url}")
     print(f"  fallback (Wi-Fi): {fallback}")
+    if ssh is not None:
+        print(f"  public (VPS):     {ssh.public_url}")
     print("Press Ctrl+C to stop.")
 
     try:
@@ -290,6 +516,8 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\nStopping...")
     finally:
+        if ssh is not None:
+            ssh.stop()
         server.shutdown()
         if mdns is not None:
             mdns.close()
