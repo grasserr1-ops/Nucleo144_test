@@ -28,9 +28,29 @@ except ImportError:
     print("Missing dependency: pip install -r requirements.txt", file=sys.stderr)
     sys.exit(1)
 
+
+def app_dir() -> Path:
+    """Directory with the script or frozen .exe (not PyInstaller _MEI* extract dir)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+def default_ssh_key_path() -> Path:
+    name = "privatekey-1122907.pem"
+    candidates = [
+        app_dir() / name,
+        Path.cwd() / name,
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    return candidates[0]
+
+
 DEFAULT_SSH_HOST = "195.209.218.245"
 DEFAULT_SSH_USER = "ubuntu"
-DEFAULT_SSH_KEY = str(Path(__file__).resolve().parent / "privatekey-1122907.pem")
+DEFAULT_SSH_KEY = str(default_ssh_key_path())
 DEFAULT_SSH_REMOTE_PORT = 8080
 
 HOP_BY_HOP = {
@@ -291,7 +311,7 @@ class SshReverseTunnel:
         if not Path(self._identity_file).is_file():
             raise RuntimeError(
                 f"SSH key not found: {self._identity_file} "
-                "(put privatekey-1122907.pem next to proxy.py)"
+                "(put privatekey-1122907.pem next to the .exe / proxy.py)"
             )
 
         self._thread = threading.Thread(
